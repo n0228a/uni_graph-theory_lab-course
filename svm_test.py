@@ -2,13 +2,19 @@
 from sklearn import svm
 from sklearn.model_selection import train_test_split
 import pandas as pd
+import glob
+import random
 
-df=pd.read_csv('schneider50k_clean.tsv', sep='\t')
-df2=pd.read_csv()
+all_x_lists = []
 
-X = # Feature vectors of reactions
+for file in glob.glob("data/*.xlsx"):
+    data = pd.read_excel(file)
+    print(f"File: {file}, Rows: {len(data)}")
+    all_x_lists.append(data['DRF Nodes'].values)
+
+X = np.concatenate(all_x_lists)
+df=pd.read_csv('schneider50k.tsv', sep='\t')
 Y = df['rxn_class'].values
-print(Y)
 
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
 
