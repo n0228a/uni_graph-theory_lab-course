@@ -4,6 +4,7 @@ from synkit.Vis import GraphVisualizer
 import matplotlib.pyplot as plt
 import networkx as nx
 import hashlib
+import pandas as pd
 
 def get_hash(data: str):
     """Returns a stable 64-bit integer from a string."""
@@ -110,3 +111,43 @@ c1, c2, c3 = getWL(its_graph, 4)
 signature1 = a1.symmetric_difference(b1)
 signature2 = a2.symmetric_difference(b2)
 signature3 = a3.symmetric_difference(b3)
+
+# Create dataframe consisting of 6 columns:
+df = pd.DataFrame(columns=[
+    "DRF Edges",
+    "DRF Shortest Paths",
+    "ITS Nodes",
+    "ITS Edges",
+    "ITS Shortest Paths"
+])
+
+if __name__ == "__main__":
+    # For each SMILES execute the WL algorithm and add to dataframe
+    df_schneider = pd.read_csv("schneider50k_clean.tsv", sep="\t")
+    for index, row in df_schneider.iterrows():
+        rsmi = row["clean_rxn"]
+        educt_graph, product_graph = rsmi_to_graph(rsmi)
+        its_graph = rsmi_to_its(rsmi)
+
+        nodes_e, sps_e, edges_e = getWL(educt_graph, 4)
+        nodes_p, sps_p, edges_p = getWL(product_graph, 4)
+        nodes_its, sps_its, edges_its = getWL(its_graph, 4)
+
+        drf_nodes = nodes_e.symmetric_difference(nodes_p)
+        drf_sps = sps_e.symmetric_difference(sps_p)
+        drf_edges = edges_e.symmetric_difference(edges_p)
+
+        df = pd.concat([df, pd.DataFrame([{
+            "DRF Nodes": drf_nodes,
+            "DRF Edges": drf_edges,
+            "DRF Shortest Paths": drf_sps,
+            "ITS Nodes": nodes_its,
+            "ITS Edges": edges_its,
+            "ITS Shortest Paths": sps_its
+        }])], ignore_index=True)
+
+        #if index > 5:
+        #  break
+
+    # Write to Excel
+    df.to_excel("pre-computed-feature_sets.xlsx", index=False)
