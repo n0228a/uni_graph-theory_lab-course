@@ -126,16 +126,19 @@ if __name__ == "__main__":
     df_schneider = pd.read_csv("schneider50k_clean.tsv", sep="\t")
     for index, row in df_schneider.iterrows():
         rsmi = row["clean_rxn"]
-        educt_graph, product_graph = rsmi_to_graph(rsmi)
-        its_graph = rsmi_to_its(rsmi)
+        try:
+            educt_graph, product_graph = rsmi_to_graph(rsmi)
+            its_graph = rsmi_to_its(rsmi)
+            nodes_e, sps_e, edges_e = getWL(educt_graph, 4)
+            nodes_p, sps_p, edges_p = getWL(product_graph, 4)
+            nodes_its, sps_its, edges_its = getWL(its_graph, 4)
 
-        nodes_e, sps_e, edges_e = getWL(educt_graph, 4)
-        nodes_p, sps_p, edges_p = getWL(product_graph, 4)
-        nodes_its, sps_its, edges_its = getWL(its_graph, 4)
-
-        drf_nodes = nodes_e.symmetric_difference(nodes_p)
-        drf_sps = sps_e.symmetric_difference(sps_p)
-        drf_edges = edges_e.symmetric_difference(edges_p)
+            drf_nodes = nodes_e.symmetric_difference(nodes_p)
+            drf_sps = sps_e.symmetric_difference(sps_p)
+            drf_edges = edges_e.symmetric_difference(edges_p)
+        except Exception as e:
+            print(f"Error processing reaction {index}: {e}")
+            drf_nodes = drf_edges = drf_sps = nodes_its = edges_its = sps_its = set()
 
         df = pd.concat([df, pd.DataFrame([{
             "DRF Nodes": drf_nodes,
@@ -145,9 +148,6 @@ if __name__ == "__main__":
             "ITS Edges": edges_its,
             "ITS Shortest Paths": sps_its
         }])], ignore_index=True)
-
-        #if index > 5:
-        #  break
 
     # Write to Excel
     df.to_excel("pre-computed-feature_sets.xlsx", index=False)
