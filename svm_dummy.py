@@ -6,6 +6,7 @@ from scripts import create_varied_set
 import glob
 import pandas as pd
 from math import log, ceil
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
 ### INTRODUCTION ###
 # There are 50 different classes with 1000 reactions each in the dataset.
@@ -18,10 +19,12 @@ CLASSES = 2
 REACTIONS_PER_CLASS = 500
 FEATURE_SET = 'DRF Edges'
 
-FEATURE_SETS = ['DRF Nodes', 'DRF Edges', 'DRF Shortest Paths', 'ITS Nodes', 'ITS Edges', 'ITS Shortest Paths']
-#FEATURE_SETS = ['DRF Nodes', 'DRF Edges']
-REACTION_SETTINGS = [20, 50, 100, 200]
-CLASS_SETTINGS = [2, 5, 10, 20]
+#FEATURE_SETS = ['DRF Nodes', 'DRF Edges', 'DRF Shortest Paths', 'ITS Nodes', 'ITS Edges', 'ITS Shortest Paths']
+FEATURE_SETS = ['DRF Edges']
+#REACTION_SETTINGS = [20, 50, 100, 200]
+REACTION_SETTINGS = [50]
+#CLASS_SETTINGS = [2, 5, 10, 20]
+CLASS_SETTINGS = [2]
 ### END CONFIGURATION VARIABLES ###
 
 dataset = pd.DataFrame()
@@ -83,8 +86,13 @@ def run_single_experiment(feature_set:str, chosen_classes:list, reactions_per_cl
     clf.fit(X_train, Y_train)
 
     # 8th step: Evaluate model on test set
-    return clf.score(X_test, Y_test)
-
+    Y_pred = clf.predict(X_test)
+    accuracy = accuracy_score(Y_test, Y_pred)
+    f1 = f1_score(Y_test, Y_pred, average='weighted')
+    precision = precision_score(Y_test, Y_pred, average='weighted', zero_division=np.nan)
+    recall = recall_score(Y_test, Y_pred, average='weighted')
+    print(f"Accuracy: {accuracy}, F1 Score: {f1}, Precision: {precision}, Recall: {recall}")
+    return accuracy, f1, precision, recall
 
 def run_experiments(feature_set:str = FEATURE_SET, used_classes:int = CLASSES, reactions_per_class:int = REACTIONS_PER_CLASS):
     global final_dataset
@@ -98,13 +106,16 @@ def run_experiments(feature_set:str = FEATURE_SET, used_classes:int = CLASSES, r
         scores = []
         for i in range(repetitions):
             print(f"  Repetition {i+1}/{repetitions}")
-            score = run_single_experiment(feature_set, chosen_classes, reactions_per_class)
-            scores.append(score)
+            accuracy, f1, precision, recall = run_single_experiment(feature_set, chosen_classes, reactions_per_class)
+            scores.append({"accuracy": accuracy, "f1": f1, "precision": precision, "recall": recall})
         
         # Summary
-        avg_score = sum(scores) / len(scores)
-        # We need: Feature Set, used classes, number of used classes, reactions per class, repetitions, average score, single scores
-        print(f"Feature Set: {feature_set}, Used Classes: {chosen_classes.tolist()}, Number of Used Classes: {used_classes}, Reactions per Class: {reactions_per_class}, Repetitions: {repetitions}, Average Score: {avg_score}, Scores: {scores}")
+        avg_score = {
+            "accuracy": np.mean([s["accuracy"] for s in scores]),
+            "f1": np.mean([s["f1"] for s in scores]),
+            "precision": np.mean([s["precision"] for s in scores]),
+            "recall": np.mean([s["recall"] for s in scores])
+        }
 
         # Write results to final_dataset (append per class set)
         final_dataset = pd.concat([final_dataset, pd.DataFrame([{
@@ -114,8 +125,14 @@ def run_experiments(feature_set:str = FEATURE_SET, used_classes:int = CLASSES, r
             "Reactions per Class": reactions_per_class,
             "Repetitions on same classes": repetitions,
             "Repetitions of each class size": class_repetitions,
-            "Average Score": avg_score,
-            "Scores": scores
+            "Average Accuracy score": avg_score["accuracy"],
+            "Average F1 score": avg_score["f1"],
+            "Average Precision score": avg_score["precision"],
+            "Average Recall score": avg_score["recall"],
+            "Accuracy Scores": [s["accuracy"] for s in scores],
+            "F1 Scores": [s["f1"] for s in scores],
+            "Precision Scores": [s["precision"] for s in scores],
+            "Recall Scores": [s["recall"] for s in scores]
         }])], ignore_index=True)
 
 def required_repetitions(sample_size:int, total:int, target_coverage:float = 0.95) -> int:
